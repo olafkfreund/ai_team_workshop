@@ -1,16 +1,27 @@
 ---
+# MCP Server CI/CD Pipeline
+#
+# ⚠️  AUTO-RUN DISABLED ⚠️
+# This workflow only runs on manual dispatch to prevent automatic execution.
+# To run this workflow:
+# 1. Go to Actions tab in GitHub
+# 2. Select "MCP Server CI/CD Pipeline"
+# 3. Click "Run workflow"
+# 4. Choose environment (dev/staging/prod)
+#
 name: MCP Server CI/CD Pipeline
 
 "on":
-  push:
-    branches: [main, develop]
-    paths:
-      - 'workshop/mpc-server/**'
-      - '.github/workflows/mcp-server.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'workshop/mpc-server/**'
+  # Disabled automatic triggers - workflow only runs on manual dispatch
+  # push:
+  #   branches: [main, develop]
+  #   paths:
+  #     - 'workshop/mpc-server/**'
+  #     - '.github/workflows/mcp-server.yml'
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - 'workshop/mpc-server/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -153,9 +164,8 @@ jobs:
     name: Build & Push
     runs-on: ubuntu-latest
     needs: [quality-checks, test]
-    if: >-
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch'
+    # Only run on manual workflow dispatch
+    if: github.event_name == 'workflow_dispatch'
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       image-digest: ${{ steps.build.outputs.digest }}
@@ -219,10 +229,10 @@ jobs:
     name: Deploy to Development
     runs-on: ubuntu-latest
     needs: build
+    # Only run on manual workflow dispatch for dev environment
     if: >-
-      github.ref == 'refs/heads/develop' ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.event.inputs.environment == 'dev')
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'dev'
     environment:
       name: development
       url: ${{ steps.deploy.outputs.app-url }}
@@ -281,10 +291,10 @@ jobs:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: [build, deploy-dev]
+    # Only run on manual workflow dispatch for staging environment
     if: >-
-      github.ref == 'refs/heads/main' ||
-      (github.event_name == 'workflow_dispatch' &&
-       github.event.inputs.environment == 'staging')
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'staging'
     environment:
       name: staging
       url: ${{ steps.deploy.outputs.app-url }}
@@ -406,7 +416,8 @@ jobs:
     name: Performance Testing
     runs-on: ubuntu-latest
     needs: deploy-staging
-    if: github.ref == 'refs/heads/main'
+    # Only run on manual workflow dispatch
+    if: github.event_name == 'workflow_dispatch'
 
     steps:
       - uses: actions/checkout@v4
