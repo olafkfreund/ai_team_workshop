@@ -1,0 +1,8 @@
+{
+  "name": "AzureVmMetricsAgent",
+  "description": "Assists with checking and interpreting Azure VM metrics.",
+  "prompt_path": "../prompts/azure-vm-metrics.md",
+  "model": "gpt-4",
+  "temperature": 0.2,
+  "functions": ["getAzureVmMetrics"]
+}

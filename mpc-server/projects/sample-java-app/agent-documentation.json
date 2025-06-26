@@ -1,0 +1,7 @@
+{
+  "name": "JavaDocsAgent",
+  "description": "Generates documentation for Java code and projects.",
+  "prompt_path": "documentation-prompt.md",
+  "model": "gpt-4",
+  "temperature": 0.2
+}

@@ -1,0 +1,8 @@
+{
+  "name": "TerraformDocsAgent",
+  "description": "Generates documentation for Terraform code in Azure DevOps projects.",
+  "prompt_path": "../prompts/terraform-docs.md",
+  "model": "gpt-4",
+  "temperature": 0.2,
+  "functions": ["generateTerraformDocs"]
+}

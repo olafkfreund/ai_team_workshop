@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Server Dashboard</title>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #00ff00;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 1.5rem;
+            padding: 2rem;
+            height: calc(100vh - 80px);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .stat-card {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+            background: linear-gradient(45deg, #00f2fe, #4facfe);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+        
+        .agents-grid {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+        
+        .events-list {
+            grid-column: span 2;
+            grid-row: span 2;
+        }
+        
+        .chart-container {
+            grid-column: span 4;
+            height: 300px;
+        }
+        
+        .agent-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .agent-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .agent-stats {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+        }
+        
+        .event-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid #4facfe;
+            border-radius: 5px;
+            padding: 0.8rem;
+            margin: 0.3rem 0;
+            font-size: 0.9rem;
+        }
+        
+        .event-time {
+            opacity: 0.7;
+            font-size: 0.8rem;
+        }
+        
+        .metric-good { color: #00ff88; }
+        .metric-warning { color: #ffaa00; }
+        .metric-error { color: #ff4444; }
+        
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-align: center;
+            background: linear-gradient(45deg, #fff, #e0e0e0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .scrollable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .scrollable::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollable::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        
+        .scrollable::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            margin-left: 0.5rem;
+            animation: pulse 1s infinite;
+        }
+        
+        .timestamp {
+            position: absolute;
+            top: 1rem;
+            right: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">
+            🚀 MCP Server Dashboard
+            <span class="status-indicator"></span>
+        </div>
+        <div class="timestamp" id="currentTime"></div>
+    </div>
+    
+    <div class="dashboard-grid">
+        <!-- System Stats Cards -->
+        <div class="card stat-card">
+            <div class="card-title">Total Requests</div>
+            <div class="stat-value" id="totalRequests">0</div>
+            <div class="stat-label">Since startup</div>
+        </div>
+        
+        <div class="card stat-card">
+            <div class="card-title">Active Agents</div>
+            <div class="stat-value" id="activeAgents">3</div>
+            <div class="stat-label">Ready to serve</div>
+        </div>
+        
+        <div class="card stat-card">
+            <div class="card-title">Avg Response</div>
+            <div class="stat-value" id="avgResponse">750ms</div>
+            <div class="stat-label">Last 100 requests</div>
+        </div>
+        
+        <div class="card stat-card">
+            <div class="card-title">Cache Hit Rate</div>
+            <div class="stat-value" id="cacheHitRate">85%</div>
+            <div class="stat-label">Redis performance</div>
+        </div>
+        
+        <!-- Agents Overview -->
+        <div class="card agents-grid">
+            <div class="card-title">🤖 Agents Overview</div>
+            <div id="agentsList" class="scrollable">
+                <!-- Agents will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Live Events -->
+        <div class="card events-list">
+            <div class="card-title">📊 Live Events <span class="live-indicator"></span></div>
+            <div id="eventsList" class="scrollable">
+                <!-- Events will be populated by JavaScript -->
+            </div>
+        </div>
+        
+        <!-- Performance Chart -->
+        <div class="card chart-container">
+            <div class="card-title">📈 Performance Metrics</div>
+            <canvas id="performanceChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Socket.IO connection
+        const socket = io();
+        
+        // Chart.js setup
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const performanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Response Time (ms)',
+                    data: [],
+                    borderColor: '#4facfe',
+                    backgroundColor: 'rgba(79, 172, 254, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }, {
+                    label: 'Requests/min',
+                    data: [],
+                    borderColor: '#00ff88',
+                    backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: 'white' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        ticks: { color: 'white' }
+                    },
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                        ticks: { color: 'white' }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: { color: 'white' }
+                    }
+                }
+            }
+        });
+        
+        // Update timestamp
+        function updateTimestamp() {
+            document.getElementById('currentTime').textContent = new Date().toLocaleString();
+        }
+        updateTimestamp();
+        setInterval(updateTimestamp, 1000);
+        
+        // Socket event handlers
+        socket.on('system_stats', function(stats) {
+            document.getElementById('totalRequests').textContent = stats.total_requests.toLocaleString();
+            document.getElementById('activeAgents').textContent = stats.active_agents;
+            document.getElementById('avgResponse').textContent = Math.round(stats.avg_response_time) + 'ms';
+            document.getElementById('cacheHitRate').textContent = Math.round(stats.cache_hit_rate) + '%';
+        });
+        
+        socket.on('system_stats_update', function(stats) {
+            // Update stats
+            document.getElementById('totalRequests').textContent = stats.total_requests.toLocaleString();
+            document.getElementById('avgResponse').textContent = Math.round(stats.avg_response_time) + 'ms';
+            document.getElementById('cacheHitRate').textContent = Math.round(stats.cache_hit_rate) + '%';
+            
+            // Update chart
+            const now = new Date().toLocaleTimeString();
+            performanceChart.data.labels.push(now);
+            performanceChart.data.datasets[0].data.push(stats.avg_response_time);
+            performanceChart.data.datasets[1].data.push(Math.random() * 20 + 10); // Simulated requests/min
+            
+            // Keep only last 20 data points
+            if (performanceChart.data.labels.length > 20) {
+                performanceChart.data.labels.shift();
+                performanceChart.data.datasets[0].data.shift();
+                performanceChart.data.datasets[1].data.shift();
+            }
+            
+            performanceChart.update('none');
+        });
+        
+        socket.on('agents_data', function(agents) {
+            const agentsList = document.getElementById('agentsList');
+            agentsList.innerHTML = '';
+            
+            Object.entries(agents).forEach(([name, data]) => {
+                const agentItem = document.createElement('div');
+                agentItem.className = 'agent-item';
+                
+                const statusClass = data.success_rate > 95 ? 'metric-good' : 
+                                   data.success_rate > 90 ? 'metric-warning' : 'metric-error';
+                
+                agentItem.innerHTML = `
+                    <div>
+                        <div class="agent-name">${name}</div>
+                        <div class="agent-stats">
+                            <span>Requests: ${data.requests_today}</span>
+                            <span class="${statusClass}">Success: ${data.success_rate}%</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div>${data.avg_response_time}ms</div>
+                        <div style="font-size: 0.8rem; opacity: 0.7;">${data.status}</div>
+                    </div>
+                `;
+                
+                agentsList.appendChild(agentItem);
+            });
+        });
+        
+        socket.on('new_event', function(event) {
+            const eventsList = document.getElementById('eventsList');
+            const eventItem = document.createElement('div');
+            eventItem.className = 'event-item';
+            
+            const time = new Date(event.timestamp).toLocaleTimeString();
+            eventItem.innerHTML = `
+                <div><strong>${event.type}</strong></div>
+                <div>${JSON.stringify(event.data)}</div>
+                <div class="event-time">${time}</div>
+            `;
+            
+            eventsList.insertBefore(eventItem, eventsList.firstChild);
+            
+            // Keep only recent events
+            while (eventsList.children.length > 50) {
+                eventsList.removeChild(eventsList.lastChild);
+            }
+        });
+        
+        socket.on('recent_events', function(events) {
+            const eventsList = document.getElementById('eventsList');
+            eventsList.innerHTML = '';
+            
+            events.reverse().forEach(event => {
+                const eventItem = document.createElement('div');
+                eventItem.className = 'event-item';
+                
+                const time = new Date(event.timestamp).toLocaleTimeString();
+                eventItem.innerHTML = `
+                    <div><strong>${event.type}</strong></div>
+                    <div>${JSON.stringify(event.data)}</div>
+                    <div class="event-time">${time}</div>
+                `;
+                
+                eventsList.appendChild(eventItem);
+            });
+        });
+        
+        // Request agents data on load
+        socket.emit('request_agents_list');
+        
+        // Simulate some events for demo
+        setInterval(() => {
+            const events = ['Agent Request', 'Cache Hit', 'Azure API Call', 'Authentication'];
+            const randomEvent = events[Math.floor(Math.random() * events.length)];
+            
+            socket.emit('simulate_event', {
+                type: randomEvent,
+                data: { agent: 'azureVmMetricsAgent', duration: Math.random() * 1000 + 500 }
+            });
+        }, 3000);
+    </script>
+</body>
+</html>

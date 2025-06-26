@@ -1,0 +1,7 @@
+{
+  "name": "PythonDocsAgent",
+  "description": "Generates documentation for Python code and projects.",
+  "prompt_path": "documentation-prompt.md",
+  "model": "gpt-4",
+  "temperature": 0.2
+}

@@ -1,0 +1,7 @@
+{
+  "name": "TypeScriptDocsAgent",
+  "description": "Generates documentation for TypeScript code and projects.",
+  "prompt_path": "documentation-prompt.md",
+  "model": "gpt-4",
+  "temperature": 0.2
+}
